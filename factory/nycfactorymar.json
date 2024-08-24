@@ -1,0 +1,9 @@
+{
+	"name": "nycfactorymar",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "bd813c88-f744-4576-a80c-50695de13590",
+		"tenantId": "f958e84a-92b8-439f-a62d-4f45996b6d07"
+	}
+}

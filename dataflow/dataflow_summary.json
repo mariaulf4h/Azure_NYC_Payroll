@@ -1,0 +1,147 @@
+{
+	"name": "dataflow_summary",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "sqldb_payroll2020",
+						"type": "DatasetReference"
+					},
+					"name": "sqldbPayroll2020"
+				},
+				{
+					"dataset": {
+						"referenceName": "sqldb_payroll2021",
+						"type": "DatasetReference"
+					},
+					"name": "sqldbPayroll2021"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "sqldb_Summary",
+						"type": "DatasetReference"
+					},
+					"name": "LoadToSQLDBSummaryTable"
+				},
+				{
+					"dataset": {
+						"referenceName": "DistagingTable",
+						"type": "DatasetReference"
+					},
+					"name": "LoadToDirstagingGen2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "UnionPayroll"
+				},
+				{
+					"name": "FilterFiscalYear"
+				},
+				{
+					"name": "CreatedTotalPaid"
+				},
+				{
+					"name": "GroupbyAgencyFiscalYear"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     dataflow_param_fiscalyear as integer (2020)",
+				"}",
+				"source(output(",
+				"          FiscalYear as integer,",
+				"          PayrollNumber as integer,",
+				"          AgencyID as string,",
+				"          AgencyName as string,",
+				"          EmployeeID as string,",
+				"          LastName as string,",
+				"          FirstName as string,",
+				"          AgencyStartDate as date,",
+				"          WorkLocationBorough as string,",
+				"          TitleCode as string,",
+				"          TitleDescription as string,",
+				"          LeaveStatusasofJune30 as string,",
+				"          BaseSalary as double,",
+				"          PayBasis as string,",
+				"          RegularHours as double,",
+				"          RegularGrossPaid as double,",
+				"          OTHours as double,",
+				"          TotalOTPaid as double,",
+				"          TotalOtherPay as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table',",
+				"     partitionBy('hash', 1)) ~> sqldbPayroll2020",
+				"source(output(",
+				"          FiscalYear as integer,",
+				"          PayrollNumber as integer,",
+				"          AgencyCode as string,",
+				"          AgencyName as string,",
+				"          EmployeeID as string,",
+				"          LastName as string,",
+				"          FirstName as string,",
+				"          AgencyStartDate as date,",
+				"          WorkLocationBorough as string,",
+				"          TitleCode as string,",
+				"          TitleDescription as string,",
+				"          LeaveStatusasofJune30 as string,",
+				"          BaseSalary as double,",
+				"          PayBasis as string,",
+				"          RegularHours as double,",
+				"          RegularGrossPaid as double,",
+				"          OTHours as double,",
+				"          TotalOTPaid as double,",
+				"          TotalOtherPay as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table',",
+				"     partitionBy('hash', 1)) ~> sqldbPayroll2021",
+				"sqldbPayroll2020, sqldbPayroll2021 union(byName: true,",
+				"     partitionBy('hash', 1))~> UnionPayroll",
+				"UnionPayroll filter(FiscalYear >= $dataflow_param_fiscalyear,",
+				"     partitionBy('hash', 1)) ~> FilterFiscalYear",
+				"FilterFiscalYear derive(TotalPaid = RegularGrossPaid + TotalOTPaid + TotalOtherPay,",
+				"     partitionBy('hash', 1)) ~> CreatedTotalPaid",
+				"CreatedTotalPaid aggregate(groupBy(AgencyName,",
+				"          FiscalYear),",
+				"     TotalPaid = sum(TotalPaid),",
+				"     partitionBy('hash', 1)) ~> GroupbyAgencyFiscalYear",
+				"GroupbyAgencyFiscalYear sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          FiscalYear as integer,",
+				"          AgencyName as string,",
+				"          TotalPaid as double",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     truncate:true,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     partitionBy('hash', 1)) ~> LoadToSQLDBSummaryTable",
+				"GroupbyAgencyFiscalYear sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     truncate: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> LoadToDirstagingGen2"
+			]
+		}
+	}
+}
